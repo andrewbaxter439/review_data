@@ -5,32 +5,48 @@ author: "Andrew Baxter"
 output: 
   html_document:
     css: "www/its_theme.css"
+    script: "https://use.fontawesome.com/154dfada5f.js"
 runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
 library(tidyverse)
+library(fontawesome)
 library(DT)
 knitr::opts_chunk$set(echo = FALSE)
 options(DT.options = list(
-            pageLength = 100,
-          lengthChange = FALSE,
-          columnDefs = list(
-            list(visible = FALSE, targets = -1),
-            list(className = 'dt-left', targets = 0),
-            list(className = 'dt-center', targets = "_all")
-          ),
-          rowCallback = JS(
-            "function(nRow, aData) {",
-                  "$('td', nRow).attr('title',  aData[aData.length-1]);",
-            "}"
-          ),
-          paging = FALSE
+  pageLength = 100,
+  lengthChange = FALSE,
+  columnDefs = list(
+    list(visible = FALSE, targets = -2:-4),
+    list(className = 'dt-left', targets = 0),
+    list(className = 'dt-left', targets = "Title"),
+    list(className = 'dt-center', targets = "_all"),
+    list(
+      targets = -1,
+      createdCell = JS(
+        "function(td, cDat, rDat, row, col) {",
+        "if (rDat[rDat.length-3] == ' ') {var link = ''} else {var link = '<a href=\"' + rDat[rDat.length-3] + '\" target=\"_blank\"><svg aria-hidden=\"true\" role=\"img\" viewBox=\"0 0 512 512\" style=\"height:1em;width:1em;vertical-align:-0.125em;margin-left:auto;margin-right:auto;font-size:inherit;fill:currentColor;overflow:visible;position:relative;\"><path d=\"M432,320H400a16,16,0,0,0-16,16V448H64V128H208a16,16,0,0,0,16-16V80a16,16,0,0,0-16-16H48A48,48,0,0,0,0,112V464a48,48,0,0,0,48,48H400a48,48,0,0,0,48-48V336A16,16,0,0,0,432,320ZM488,0h-128c-21.37,0-32.05,25.91-17,41l35.73,35.73L135,320.37a24,24,0,0,0,0,34L157.67,377a24,24,0,0,0,34,0L435.28,133.32,471,169c15,15,41,4.5,41-17V24A24,24,0,0,0,488,0Z\"></path></svg></a>'};",
+        "$(td).html(link)",
+        "}"
+      )
+    )
+  ),
+  paging = FALSE
 ))
 review_data <- readRDS("data/review_out.rds")
-variables <- c("none", colnames(review_data))
-variables <- variables[variables != "Reference" & variables != "Notes"]
+effects_data <- review_data %>%
+  select(-score:-DOI, Title) %>% 
+  mutate(url = replace_na(url, " "))
+
+variables <- c("none", colnames(effects_data))
+variables <-
+  variables[variables != "Reference" &
+              variables != "Notes" & variables != "Title" & variables != "url"]
+
 ```
+
+
 
 ```{css, echo=FALSE}
 
@@ -56,21 +72,36 @@ selectInput("filter",
             width = "400px")
 
 
+
 renderDT({
   if (input$filter == "none") {
-    review_data %>%
+    effects_data %>%
+      mutate(link = "") %>%
       datatable(
         selection = "none",
-        rownames = FALSE
-      )
+        rownames = FALSE,
+        options = list(
+        rowCallback = JS(
+          "function(nRow, aData) {",
+          "$('td', nRow).attr('title',  'Title: ' + aData[aData.length-2]);",
+          "}"
+        )
+      ))
   } else {
-    review_data %>%
-      select(Reference, input$filter, Notes) %>%
-      filter(across(everything(), ~ !is.na(.x))) %>% 
-      datatable(
-        selection = "none",
-        rownames = FALSE
-      )
+    effects_data %>%
+      mutate(link = "", blank = "") %>%
+      select(Reference, Title, input$filter, Notes, url, blank, link) %>%
+      filter(across(everything(), ~ !is.na(.x))) %>%
+      datatable(selection = "none",
+                rownames = FALSE,
+        options = list(
+        rowCallback = JS(
+          "function(nRow, aData) {",
+          "$('td', nRow).attr('title',  aData[aData.length-4]);",
+          "}"
+        )
+                )
+        )
   }
 })
 ```
